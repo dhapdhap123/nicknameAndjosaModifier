@@ -104,37 +104,44 @@ const changeJosa = (text, josa, last_char) => {
   }
 };
 
+const makeNeededLists = (regex, text) => {
+  const matches = text.matchAll(regex);
+
+  const matches_list = [];
+  const target_list = [0];
+  const splitted_text_list = [];
+
+  for (const match of matches) {
+    target_list.push(match.index);
+    target_list.push(match.index + match[0].length);
+    matches_list.push(match);
+  }
+  target_list.push(text.length);
+
+  let i = 0;
+  while (i < target_list.length - 1) {
+    const l_idx = target_list[i];
+    const r_idx = target_list[i + 1];
+    splitted_text_list.push(text.substring(l_idx, r_idx));
+    i++;
+  }
+  console.log(splitted_text_list);
+  return [matches_list, splitted_text_list];
+};
+
 const nicknameModifier = (nickname, text) => {
-  const target_text = "{user name}";
-  if (text.indexOf(target_text) !== -1) {
+  const regex = /(\{user.name\})([ㄱ-힣]+)?/g;
+  const isValid = text.match(regex);
+
+  if (isValid) {
     const full_ko_list = getWholeKoList(nickname);
 
     if (full_ko_list.length > 0) {
       const last_char_object = full_ko_list.pop();
       const last_char = last_char_object["text"];
 
-      const target_list = [0];
-      const splitted_text_list = [];
+      const [matches_list, splitted_text_list] = makeNeededLists(regex, text);
 
-      const regex = /(\{user name\})([ㄱ-힣]+)?/g;
-      const matches = text.matchAll(regex);
-      const matches_list = [];
-
-      for (const match of matches) {
-        target_list.push(match.index);
-        target_list.push(match.index + match[0].length);
-        matches_list.push(match);
-      }
-      target_list.push(text.length);
-
-      let i = 0;
-      while (i < target_list.length - 1) {
-        const l_idx = target_list[i];
-        const r_idx = target_list[i + 1];
-        splitted_text_list.push(text.substring(l_idx, r_idx));
-        i++;
-      }
-      console.log(splitted_text_list);
       for (let k = 0; k < splitted_text_list.length; k++) {
         const text_to_change = splitted_text_list[k];
         if (text_to_change === matches_list[0][0]) {
@@ -145,17 +152,21 @@ const nicknameModifier = (nickname, text) => {
               last_char
             );
             console.log(
-              `${k + 1}번째 원소 nickname 변경: {user name} => ${nickname}`
+              `${k + 1}번째 원소 nickname 변경: ${
+                matches_list[0][1]
+              } => ${nickname}`
             );
             splitted_text_list.splice(
               k,
               1,
-              changed_text.replace(target_text, nickname)
+              changed_text.replace(matches_list[0][1], nickname)
             );
             matches_list.shift();
           } else {
             console.log(
-              `${k + 1}번째 원소 nickname 변경: {user name} => ${nickname}`
+              `${k + 1}번째 원소 nickname 변경: ${
+                matches_list[0][1]
+              } => ${nickname}`
             );
             splitted_text_list.splice(k, 1, nickname);
             matches_list.shift();
@@ -168,15 +179,37 @@ const nicknameModifier = (nickname, text) => {
       }
       return splitted_text_list.join("");
     } else {
-      console.log("닉네임에 완전한 한글 문자 없음. 호칭만 변경해 발송");
+      //온전한 한글 없음
       let new_text = text;
-      while (new_text.indexOf(target_text) !== -1) {
-        new_text = new_text.replace(target_text, nickname);
+      console.log("닉네임에 완전한 한글 문자 없음. 호칭만 변경해 발송");
+      const [matches_list, splitted_text_list] = makeNeededLists(regex, text);
+      for (let k = 0; k < splitted_text_list.length; k++) {
+        const text_to_change = splitted_text_list[k];
+        if (text_to_change === matches_list[0][0]) {
+          splitted_text_list.splice(
+            k,
+            1,
+            text_to_change.replace(matches_list[0][1], nickname)
+          );
+          matches_list.shift();
+        }
+
+        if (matches_list.length === 0) {
+          break;
+        }
       }
-      return new_text;
+
+      return splitted_text_list.join("");
     }
   } else {
     console.log("텍스트에 {user name} 없음. 그대로 발송");
     return text;
   }
 };
+
+// ex)
+const nickname = "혁준";
+const text =
+  "{user name}, 안녕? {user_name}을 보게 되다니 영광이야 {user name}은 어때? {user:name} 사랑해!";
+const changed_text = nicknameModifier(nickname, text);
+console.log(changed_text);
